@@ -1,0 +1,38 @@
+# ============================================
+# SAFE-EYE Git Ignore
+# ============================================
+
+# Python virtual environment
+.venv/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Environment variables / API keys
+.env
+.env.*
+
+# .env.example은 GitHub에 업로드 허용
+!.env.example
+
+# Streamlit secrets
+.streamlit/secrets.toml
+
+# Local database
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Test / cache files
+.pytest_cache/
+.mypy_cache/
