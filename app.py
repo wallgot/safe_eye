@@ -3,6 +3,8 @@
 import streamlit as st
 
 from src.risk.evidence import create_sample_evidence
+from src.risk.risk_engine import calculate_risk_score
+
 
 # ============================================
 # SAFE-EYE v1.0
@@ -123,6 +125,8 @@ if analyze_button:
 
     # 현재는 AI 대신 샘플 데이터를 사용합니다.
     evidence = create_sample_evidence()
+    # Risk Engine으로 위험 점수를 계산합니다.
+    risk_result = calculate_risk_score(evidence)
 
     # ----------------------------------------
     # 위험요소
@@ -172,3 +176,34 @@ if analyze_button:
 
     for action in evidence["recommended_actions"]:
         st.write(f"- {action}")
+
+         # ----------------------------------------
+    # SAFE-EYE Risk Score
+    # ----------------------------------------
+
+    st.divider()
+
+    st.header("📊 SAFE-EYE Risk Score")
+
+    st.metric(
+        label="위험 점수",
+        value=f"{risk_result['total_score']}점"
+    )
+
+    st.subheader("🚦 위험 등급")
+
+    st.write(
+        f"**{risk_result['risk_level']}**"
+    )
+
+    # ----------------------------------------
+    # 점수 산정 근거
+    # ----------------------------------------
+
+    st.subheader("🧮 점수 산정 근거")
+
+    st.write(f"- 기본 점수: {risk_result['base_score']}점")
+    st.write(f"- 위험요소 점수: {risk_result['hazard_score']}점")
+    st.write(f"- 교통약자 점수: {risk_result['vulnerable_score']}점")
+    st.write(f"- 환경 데이터 점수: {risk_result['environment_score']}점")
+    st.write(f"- 반복 관찰 점수: {risk_result['repeat_score']}점")
