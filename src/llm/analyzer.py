@@ -1,3 +1,4 @@
+import base64
 import json
 import os
 
@@ -127,18 +128,136 @@ STROLLER_USER
 
     return evidence
 
+def analyze_multimodal(
+    location,
+    selected_hazard,
+    description,
+    image_bytes,
+    image_type="image/jpeg"
+):
+    """
+    위치, 사용자가 선택한 위험유형, 설명, 현장사진을 함께 분석하여
+    SAFE-EYE Field Evidence 형식의 JSON을 반환합니다.
+    """
+
+    encoded_image = base64.b64encode(image_bytes).decode("utf-8")
+
+    system_prompt = """
+너는 SAFE-EYE 보행환경 Field Evidence 분석 AI다.
+
+목표:
+현장 사진과 사용자가 제공한 정보를 분석하여
+관찰 가능한 보행환경 위험요소를 구조화한다.
+
+중요 원칙:
+1. 실제 사고가 발생했다고 추정하지 않는다.
+2. 불법 주정차 여부 등 법적 판단을 임의로 확정하지 않는다.
+3. 이미지에서 직접 확인할 수 없는 사실을 만들어내지 않는다.
+4. 사용자의 설명과 이미지가 일치하지 않으면 uncertainty에 기록한다.
+5. 사용자가 주장했지만 이미지로 확인되지 않는 사실은 observed_evidence가 아니라 uncertainty에 기록한다.
+6. 이미지에서 명확히 보이지만 사용자가 언급하지 않은 위험요소는 추가할 수 있다.
+7. 위험점수는 계산하지 않는다.
+8. 행정처분 여부를 결정하지 않는다.
+9. 일반 보행자는 vulnerable_user로 분류하지 않는다.
+10. 반드시 허용된 표준 코드만 사용한다.
+
+허용 hazard_codes:
+VISIBILITY_OBSTRUCTION
+CROSSWALK_ADJACENT_VEHICLE
+DAMAGED_SIDEWALK
+SIDEWALK_OBSTACLE
+POOR_LIGHTING
+SLIPPERY_SURFACE
+SIGNAL_ISSUE
+OTHER
+
+허용 vulnerable_user_codes:
+CHILD
+ELDERLY
+MOBILITY_IMPAIRED
+VISUALLY_IMPAIRED
+WHEELCHAIR_USER
+STROLLER_USER
+
+반환 형식:
+
+{
+  "hazard_codes": ["DAMAGED_SIDEWALK"],
+  "hazards": ["보도블록 파손"],
+  "vulnerable_user_codes": ["ELDERLY"],
+  "vulnerable_users": ["고령자"],
+  "observed_evidence": ["사진에서 직접 확인된 사실"],
+  "uncertainty": ["사진만으로 확인할 수 없는 사실"],
+  "recommended_actions": ["현장점검 권고사항"]
+}
+
+출력 형식 규칙:
+- 모든 필드의 값은 반드시 문자열 배열(list of strings)이어야 한다.
+- hazards 내부에 JSON 객체를 만들지 않는다.
+- vulnerable_users 내부에 JSON 객체를 만들지 않는다.
+- code, description, location 등의 하위 객체를 만들지 않는다.
+- hazard_codes에는 허용된 표준 코드 문자열만 넣는다.
+- vulnerable_user_codes에는 허용된 표준 코드 문자열만 넣는다.
+- 해당 내용이 없으면 빈 배열 []을 반환한다.
+
+JSON 이외의 텍스트는 출력하지 않는다.
+"""
+
+    user_context = f"""
+관찰 위치: {location}
+사용자가 선택한 위험유형: {selected_hazard}
+사용자 추가 설명: {description if description else "추가 설명 없음"}
+
+사진과 위 정보를 함께 검토하여 SAFE-EYE Field Evidence를 생성하라.
+"""
+
+    response = client.chat.completions.create(
+        model="gpt-5.6",
+        messages=[
+            {
+                "role": "system",
+                "content": system_prompt,
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": user_context,
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": (
+                                f"data:{image_type};base64,"
+                                f"{encoded_image}"
+                            )
+                        },
+                    },
+                ],
+            },
+        ],
+        response_format={"type": "json_object"},
+    )
+
+    result_text = response.choices[0].message.content
+
+    return json.loads(result_text)
+
 
 if __name__ == "__main__":
 
-    sample_description = (
-    "성남시 수정구 버스정류장 앞 보도블록이 깨져 있고 "
-    "고령자가 걷다가 넘어질 가능성이 있어 보입니다."
+    image_path = "data/sample/test_sidewalk.jpg"
+
+    with open(image_path, "rb") as image_file:
+        image_bytes = image_file.read()
+
+    result = analyze_multimodal(
+        location="성남시 수정구 테스트 지점",
+        selected_hazard="보도 파손",
+        description="보도블록이 파손되어 보행자가 걸려 넘어질 위험이 있어 보입니다.",
+        image_bytes=image_bytes,
+        image_type="image/jpeg",
     )
 
-    result = analyze_text(sample_description)
-
-    print(json.dumps(
-        result,
-        ensure_ascii=False,
-        indent=2
-    ))
+    print(json.dumps(result, ensure_ascii=False, indent=2))
