@@ -2,8 +2,9 @@
 # st라는 짧은 이름으로 사용하겠다는 의미입니다.
 import streamlit as st
 
-from src.risk.evidence import create_sample_evidence
+
 from src.risk.risk_engine import calculate_risk_score
+from src.llm.analyzer import analyze_text
 
 from src.storage.database import (
     init_database,
@@ -134,7 +135,7 @@ if analyze_button:
     st.header("📋 Risk Evidence")
 
     # 현재는 AI 대신 샘플 데이터를 사용합니다.
-    evidence = create_sample_evidence()
+    evidence = analyze_text(description)
     # Risk Engine으로 위험 점수를 계산합니다.
     risk_result = calculate_risk_score(evidence)
 

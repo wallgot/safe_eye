@@ -20,14 +20,30 @@ def calculate_risk_score(evidence):
     # 최대 30점
     # -------------------------
 
-    hazards = evidence.get("hazards", [])
+    hazard_codes = evidence.get("hazard_codes", [])
 
-    if "시야 차단" in hazards:
+    if "VISIBILITY_OBSTRUCTION" in hazard_codes:
         hazard_score += 15
 
-    if "횡단보도 인접 차량" in hazards:
+    if "CROSSWALK_ADJACENT_VEHICLE" in hazard_codes:
         hazard_score += 15
 
+    if "DAMAGED_SIDEWALK" in hazard_codes:
+        hazard_score += 15
+
+    if "SIDEWALK_OBSTACLE" in hazard_codes:
+        hazard_score += 10
+
+    if "POOR_LIGHTING" in hazard_codes:
+        hazard_score += 10
+
+    if "SLIPPERY_SURFACE" in hazard_codes:
+        hazard_score += 10
+
+    if "SIGNAL_ISSUE" in hazard_codes:
+        hazard_score += 15
+
+    # 위험요소 점수는 최대 30점
     hazard_score = min(hazard_score, 30)
 
     # -------------------------
@@ -35,21 +51,37 @@ def calculate_risk_score(evidence):
     # 최대 20점
     # -------------------------
 
-    vulnerable_users = evidence.get("vulnerable_users", [])
+    vulnerable_user_codes = evidence.get(
+        "vulnerable_user_codes",
+        []
+    )
 
-    if "어린이" in vulnerable_users:
+    if "CHILD" in vulnerable_user_codes:
         vulnerable_score += 10
 
-    if "고령자" in vulnerable_users:
+    if "ELDERLY" in vulnerable_user_codes:
         vulnerable_score += 10
 
+    if "MOBILITY_IMPAIRED" in vulnerable_user_codes:
+        vulnerable_score += 10
+
+    if "VISUALLY_IMPAIRED" in vulnerable_user_codes:
+        vulnerable_score += 10
+
+    if "WHEELCHAIR_USER" in vulnerable_user_codes:
+        vulnerable_score += 10
+
+    if "STROLLER_USER" in vulnerable_user_codes:
+        vulnerable_score += 10
+
+    # 교통약자 점수는 최대 20점
     vulnerable_score = min(vulnerable_score, 20)
 
     # -------------------------
     # 3. 환경 데이터 점수
     # 최대 20점
     # -------------------------
-    # 아직 공공데이터를 연결하지 않았기 때문에
+    # 아직 성남시 공공데이터를 연결하지 않았기 때문에
     # 현재는 0점으로 둡니다.
 
     environment_score = 0
@@ -58,13 +90,14 @@ def calculate_risk_score(evidence):
     # 4. 반복 관찰 점수
     # 최대 10점
     # -------------------------
-    # 아직 데이터베이스가 없기 때문에
+    # SQLite는 연결되어 있지만
+    # 반복 관찰 횟수를 점수화하는 기능은 아직 구현하지 않았기 때문에
     # 현재는 0점으로 둡니다.
 
     repeat_score = 0
 
     # -------------------------
-    # 최종 점수
+    # 5. 최종 점수
     # -------------------------
 
     total_score = (
@@ -75,22 +108,31 @@ def calculate_risk_score(evidence):
         + repeat_score
     )
 
+    # 최종 점수는 최대 100점
     total_score = min(total_score, 100)
 
     # -------------------------
-    # 위험 등급
+    # 6. 위험 등급
     # -------------------------
 
     if total_score >= 85:
         risk_level = "매우 높음"
+
     elif total_score >= 70:
         risk_level = "높음"
+
     elif total_score >= 50:
         risk_level = "주의"
+
     elif total_score >= 30:
         risk_level = "관심"
+
     else:
         risk_level = "낮음"
+
+    # -------------------------
+    # 결과 반환
+    # -------------------------
 
     return {
         "base_score": base_score,
@@ -102,10 +144,26 @@ def calculate_risk_score(evidence):
         "risk_level": risk_level,
     }
 
+
+# ============================================================
+# 단독 실행 테스트
+# ============================================================
+
 if __name__ == "__main__":
+
     sample_evidence = {
-        "hazards": ["시야 차단", "횡단보도 인접 차량"],
-        "vulnerable_users": ["어린이", "고령자"]
+        "hazard_codes": [
+            "DAMAGED_SIDEWALK"
+        ],
+        "hazards": [
+            "버스정류장 앞 보도블록 파손"
+        ],
+        "vulnerable_user_codes": [
+            "ELDERLY"
+        ],
+        "vulnerable_users": [
+            "고령자"
+        ]
     }
 
     result = calculate_risk_score(sample_evidence)
