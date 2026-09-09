@@ -5,6 +5,16 @@ import streamlit as st
 from src.risk.evidence import create_sample_evidence
 from src.risk.risk_engine import calculate_risk_score
 
+from src.storage.database import (
+    init_database,
+    save_report,
+    save_ai_analysis,
+    save_risk_score,
+)
+
+# SAFE-EYE 데이터베이스 초기화
+init_database()
+
 
 # ============================================
 # SAFE-EYE v1.0
@@ -127,6 +137,28 @@ if analyze_button:
     evidence = create_sample_evidence()
     # Risk Engine으로 위험 점수를 계산합니다.
     risk_result = calculate_risk_score(evidence)
+
+    # 관찰 정보 저장
+    report_id = save_report(
+        location=location,
+        description=description
+    )
+
+    # Risk Evidence 저장
+    save_ai_analysis(
+        report_id=report_id,
+        evidence=evidence
+    )
+
+    # Risk Score 저장
+    save_risk_score(
+        report_id=report_id,
+        risk_result=risk_result
+    )
+
+    st.success(
+        f"분석 결과가 저장되었습니다. Report ID: {report_id}"
+    )
 
     # ----------------------------------------
     # 위험요소
