@@ -14,7 +14,7 @@ __pycache__/
 .env
 .env.*
 
-# .env.example은 GitHub에 업로드 허용
+# Allow .env.example to be uploaded to GitHub
 !.env.example
 
 # Streamlit secrets
@@ -36,3 +36,9 @@ Thumbs.db
 # Test / cache files
 .pytest_cache/
 .mypy_cache/
+
+# Local test data
+data/
+
+# Personal backup files
+*백업*.txt
