@@ -38,7 +38,7 @@ Thumbs.db
 .mypy_cache/
 
 # Local test data
-data/
+/data/
 
 # Personal backup files
 *백업*.txt
