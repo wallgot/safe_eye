@@ -1,20 +1,19 @@
-# ============================================
-# SAFE-EYE v1.1
-# YOLO → Risk Evidence Adapter
-# ============================================
-
 """
-팀원이 구현한 YOLO 탐지 결과를
-SAFE-EYE Risk Evidence Interface에서 사용할 수 있는
-raw_evidence 형태로 변환합니다.
+SAFE-EYE v1.2
+YOLO -> Risk Evidence Adapter
 
-중요:
-YOLO 모델의 최종 class 이름은 아직 확정되지 않았습니다.
+실제 YOLO 모델(best.pt)의 12개 클래스를
+SAFE-EYE Risk Evidence 형식으로 변환한다.
 
-따라서 YOLO_CLASS_MAP만 수정하면
-나머지 SAFE-EYE Core는 변경하지 않도록 구성합니다.
+중요 원칙
+----------
+1. YOLO confidence는 "위험도"가 아니다.
+2. 의미가 명확한 위험 클래스만 hazard_code로 변환한다.
+3. humans, bicycle, manhole, patching은 탐지 결과에는 보존하지만
+   그 자체만으로 위험으로 판단하지 않는다.
+4. object는 현재 의미가 불명확하므로 Risk Evidence에서 제외한다.
+5. YOLO 탐지만으로 취약사용자를 추론하지 않는다.
 """
-
 
 from src.risk.evidence_schema import (
     normalize_evidence,
@@ -22,82 +21,101 @@ from src.risk.evidence_schema import (
 )
 
 
-# ============================================
-# 1. YOLO Class → SAFE-EYE 표준 코드
-# ============================================
+# ============================================================
+# 1. 실제 YOLO 클래스
+# ============================================================
+
+YOLO_MODEL_CLASSES = {
+    0: "alligator cracking",
+    1: "bicycle",
+    2: "edge cracking",
+    3: "humans",
+    4: "longitudinal cracking",
+    5: "manhole",
+    6: "object",
+    7: "open-manhole",
+    8: "patching",
+    9: "pothole",
+    10: "rutting",
+    11: "transverse cracking",
+}
+
+
+# ============================================================
+# 2. YOLO -> SAFE-EYE Hazard Mapping
+# ============================================================
+
+# 의미가 명확하고 직접적인 위험 Evidence로 사용할 클래스만 등록한다.
+#
+# object:
+#   테스트 영상에서 사람/수풀 등 다양한 객체를 object로 탐지한 사례가
+#   확인되어 현재는 위험 Evidence로 사용하지 않는다.
+#
+# humans / bicycle:
+#   존재 자체가 위험을 의미하지 않는다.
+#
+# manhole:
+#   정상적으로 닫힌 맨홀은 위험이라고 단정할 수 없다.
+#
+# patching:
+#   도로 보수 흔적 자체를 현재 위험이라고 단정하지 않는다.
 
 YOLO_CLASS_MAP = {
-    # ----------------------------------------
-    # 보도 파손
-    # ----------------------------------------
-    "damaged_sidewalk": "DAMAGED_SIDEWALK",
-    "sidewalk_damage": "DAMAGED_SIDEWALK",
-    "broken_sidewalk": "DAMAGED_SIDEWALK",
+    # 노면 파손 계열
+    # 현재 SAFE-EYE Evidence Schema의 기존 표준코드에 보수적으로 매핑
+    "alligator cracking": "DAMAGED_SIDEWALK",
+    "edge cracking": "DAMAGED_SIDEWALK",
+    "longitudinal cracking": "DAMAGED_SIDEWALK",
+    "transverse cracking": "DAMAGED_SIDEWALK",
+    "pothole": "DAMAGED_SIDEWALK",
+    "rutting": "DAMAGED_SIDEWALK",
 
-    # ----------------------------------------
-    # 보도 장애물
-    # ----------------------------------------
-    "sidewalk_obstacle": "SIDEWALK_OBSTACLE",
-    "obstacle": "SIDEWALK_OBSTACLE",
-
-    # ----------------------------------------
-    # 시야 방해
-    # ----------------------------------------
-    "visibility_obstruction": "VISIBILITY_OBSTRUCTION",
-
-    # ----------------------------------------
-    # 횡단보도 주변 차량
-    # ----------------------------------------
-    "crosswalk_vehicle": "CROSSWALK_ADJACENT_VEHICLE",
-    "vehicle_near_crosswalk": "CROSSWALK_ADJACENT_VEHICLE",
-
-    # ----------------------------------------
-    # 조명 부족
-    # ----------------------------------------
-    "poor_lighting": "POOR_LIGHTING",
-
-    # ----------------------------------------
-    # 미끄러운 노면
-    # ----------------------------------------
-    "slippery_surface": "SLIPPERY_SURFACE",
-
-    # ----------------------------------------
-    # 신호 관련 문제
-    # ----------------------------------------
-    "signal_issue": "SIGNAL_ISSUE",
+    # 개방 맨홀은 보행공간의 직접적인 장애/위험요소로 처리
+    "open-manhole": "SIDEWALK_OBSTACLE",
 }
 
-
-# ============================================
-# 2. 표준 위험코드 설명
-# ============================================
+# ============================================================
+# 3. SAFE-EYE 위험 설명
+# ============================================================
 
 HAZARD_DESCRIPTIONS = {
-    "DAMAGED_SIDEWALK": "보도 파손 후보",
-    "SIDEWALK_OBSTACLE": "보도 장애물 후보",
-    "VISIBILITY_OBSTRUCTION": "시야 방해 후보",
-    "CROSSWALK_ADJACENT_VEHICLE": "횡단보도 주변 차량 후보",
-    "POOR_LIGHTING": "조명 부족 후보",
-    "SLIPPERY_SURFACE": "미끄러운 노면 후보",
-    "SIGNAL_ISSUE": "신호 관련 문제 후보",
+    "DAMAGED_SIDEWALK": "노면 균열·포트홀·변형 등 보행환경 손상 관찰",
+    "SIDEWALK_OBSTACLE": "개방 맨홀 등 보행공간 장애요소 관찰",
+}
+
+# ============================================================
+# 4. Risk에는 반영하지 않지만 보존할 YOLO 클래스
+# ============================================================
+
+OBSERVATION_ONLY_CLASSES = {
+    "humans",
+    "bicycle",
+    "manhole",
+    "patching",
 }
 
 
-# ============================================
-# 3. Detection 정규화
-# ============================================
+# ============================================================
+# 5. 현재 의미가 불명확하여 위험 판단에서 제외할 클래스
+# ============================================================
 
-def normalize_yolo_detection(
-    detection,
-):
+UNMAPPED_CLASSES = {
+    "object",
+}
+
+
+# ============================================================
+# 6. Detection 정규화
+# ============================================================
+
+def normalize_yolo_detection(detection):
     """
-    YOLO detection 1건을
-    SAFE-EYE에서 보존할 공통 detection 구조로 변환합니다.
+    YOLO detection 1건을 SAFE-EYE 공통 detection 구조로 변환한다.
 
-    지원 입력 예:
+    지원 입력 예시:
 
     {
-        "class": "damaged_sidewalk",
+        "class": "pothole",
         "confidence": 0.87,
         "bbox": [120, 80, 430, 310]
     }
@@ -105,9 +123,9 @@ def normalize_yolo_detection(
     또는:
 
     {
-        "class_name": "damaged_sidewalk",
+        "class_name": "pothole",
         "score": 0.87,
-        "bbox": [120, 80, 430, 310]
+        "box": [120, 80, 430, 310]
     }
     """
 
@@ -121,85 +139,57 @@ def normalize_yolo_detection(
         or detection.get("name")
     )
 
-    confidence = detection.get(
-        "confidence"
-    )
+    confidence = detection.get("confidence")
 
     if confidence is None:
-        confidence = detection.get(
-            "score"
-        )
+        confidence = detection.get("score")
 
-    bbox = detection.get(
-        "bbox"
-    )
+    bbox = detection.get("bbox")
 
     if bbox is None:
-        bbox = detection.get(
-            "box"
-        )
+        bbox = detection.get("box")
 
-    normalized = {
+    return {
         "class": class_name,
         "confidence": confidence,
         "bbox": bbox,
     }
 
-    return normalized
 
-
-# ============================================
-# 4. YOLO → SAFE-EYE raw Evidence
-# ============================================
+# ============================================================
+# 7. YOLO -> SAFE-EYE raw Evidence
+# ============================================================
 
 def adapt_yolo_result(
     yolo_result,
     confidence_threshold=0.50,
 ):
     """
-    YOLO 팀원의 원본 결과를
-    SAFE-EYE raw Risk Evidence로 변환합니다.
+    YOLO 탐지 결과를 SAFE-EYE raw Risk Evidence로 변환한다.
 
-    Parameters
-    ----------
-    yolo_result : dict | list
-        YOLO 원본 결과
-
-    confidence_threshold : float
-        SAFE-EYE Evidence에 반영할 최소 confidence
-
-    Returns
-    -------
-    dict
-        SAFE-EYE Core Pipeline에 전달 가능한
-        raw_evidence
+    confidence_threshold는 탐지 결과를 사용할 최소 신뢰도일 뿐,
+    위험점수를 의미하지 않는다.
     """
 
-    # ----------------------------------------
-    # 4-1. Detection 목록 추출
-    # ----------------------------------------
+    # --------------------------------------------------------
+    # 7-1. Detection 목록 추출
+    # --------------------------------------------------------
 
     if isinstance(yolo_result, list):
-
         raw_detections = yolo_result
 
     elif isinstance(yolo_result, dict):
-
-        raw_detections = (
-            yolo_result.get(
-                "detections",
-                []
-            )
+        raw_detections = yolo_result.get(
+            "detections",
+            [],
         )
 
     else:
-
         raw_detections = []
 
-
-    # ----------------------------------------
-    # 4-2. Detection 정규화
-    # ----------------------------------------
+    # --------------------------------------------------------
+    # 7-2. Detection 정규화 및 confidence 검증
+    # --------------------------------------------------------
 
     detections = []
 
@@ -216,8 +206,6 @@ def adapt_yolo_result(
             "confidence"
         )
 
-        # confidence가 숫자가 아닌 경우
-        # 위험 판단 근거로 사용하지 않습니다.
         if not isinstance(
             confidence,
             (int, float),
@@ -227,37 +215,29 @@ def adapt_yolo_result(
         if isinstance(confidence, bool):
             continue
 
-        if not (
-            0.0
-            <= float(confidence)
-            <= 1.0
-        ):
+        confidence = float(confidence)
+
+        if not 0.0 <= confidence <= 1.0:
             continue
 
-        if (
-            float(confidence)
-            < confidence_threshold
-        ):
+        if confidence < confidence_threshold:
             continue
 
-        normalized[
-            "confidence"
-        ] = float(confidence)
+        normalized["confidence"] = confidence
 
         detections.append(
             normalized
         )
 
-
-    # ----------------------------------------
-    # 4-3. 위험코드 생성
-    # ----------------------------------------
+    # --------------------------------------------------------
+    # 7-3. Risk Evidence 생성
+    # --------------------------------------------------------
 
     hazard_codes = []
-
     hazards = []
 
     observed_evidence = []
+    uncertainty = []
 
     mapped_confidences = []
 
@@ -279,53 +259,105 @@ def adapt_yolo_result(
             .lower()
         )
 
-        hazard_code = (
-            YOLO_CLASS_MAP.get(
-                normalized_class_name
-            )
+        confidence = detection[
+            "confidence"
+        ]
+
+        # ----------------------------------------------------
+        # 직접 Risk Evidence로 사용할 클래스
+        # ----------------------------------------------------
+
+        hazard_code = YOLO_CLASS_MAP.get(
+            normalized_class_name
         )
 
-        # 아직 SAFE-EYE에 매핑되지 않은
-        # YOLO class는 detections에는 보존하지만
-        # 위험코드로 확정하지 않습니다.
-        if hazard_code is None:
-            continue
+        if hazard_code is not None:
 
-        if (
-            hazard_code
-            not in hazard_codes
-        ):
-            hazard_codes.append(
-                hazard_code
+            if hazard_code not in hazard_codes:
+
+                hazard_codes.append(
+                    hazard_code
+                )
+
+                hazards.append(
+                    HAZARD_DESCRIPTIONS.get(
+                        hazard_code,
+                        hazard_code,
+                    )
+                )
+
+            mapped_confidences.append(
+                confidence
             )
 
-            hazards.append(
-                HAZARD_DESCRIPTIONS.get(
-                    hazard_code,
-                    hazard_code,
+            observed_evidence.append(
+                (
+                    f"YOLO가 '{class_name}' 객체를 "
+                    f"confidence {confidence:.2f}로 탐지함."
                 )
             )
 
-        confidence = detection.get(
-            "confidence"
-        )
+            continue
 
-        mapped_confidences.append(
-            confidence
-        )
+        # ----------------------------------------------------
+        # 관찰만 보존하는 클래스
+        # ----------------------------------------------------
 
-        observed_evidence.append(
+        if (
+            normalized_class_name
+            in OBSERVATION_ONLY_CLASSES
+        ):
+
+            observed_evidence.append(
+                (
+                    f"YOLO가 '{class_name}' 객체를 "
+                    f"confidence {confidence:.2f}로 탐지했으나, "
+                    "객체 존재만으로 위험으로 판단하지 않음."
+                )
+            )
+
+            continue
+
+        # ----------------------------------------------------
+        # 의미 불명확 클래스
+        # ----------------------------------------------------
+
+        if (
+            normalized_class_name
+            in UNMAPPED_CLASSES
+        ):
+
+            uncertainty.append(
+                (
+                    f"YOLO가 '{class_name}' 객체를 "
+                    f"confidence {confidence:.2f}로 탐지했으나, "
+                    "현재 클래스 의미가 충분히 특정되지 않아 "
+                    "Risk Evidence에서 제외함."
+                )
+            )
+
+            continue
+
+        # ----------------------------------------------------
+        # 모델 정의에 없는 알 수 없는 클래스
+        # ----------------------------------------------------
+
+        uncertainty.append(
             (
-                f"YOLO가 '{class_name}' 객체를 "
-                f"confidence {confidence:.2f}로 "
-                f"탐지했습니다."
+                f"정의되지 않은 YOLO 클래스 "
+                f"'{class_name}'가 탐지되어 "
+                "Risk Evidence에서 제외함."
             )
         )
 
+    # --------------------------------------------------------
+    # 7-4. 전체 confidence
+    # --------------------------------------------------------
 
-    # ----------------------------------------
-    # 4-4. 대표 Confidence
-    # ----------------------------------------
+    # 위험 Evidence로 실제 채택된 detection만 사용한다.
+    #
+    # 주의:
+    # 이 값은 위험도가 아니라 탐지 confidence의 대표값이다.
 
     if mapped_confidences:
 
@@ -334,30 +366,25 @@ def adapt_yolo_result(
         )
 
     else:
-
         overall_confidence = None
 
-
-    # ----------------------------------------
-    # 4-5. 불확실성
-    # ----------------------------------------
-
-    uncertainty = []
+    # --------------------------------------------------------
+    # 7-5. 위험 Evidence가 없는 경우
+    # --------------------------------------------------------
 
     if not hazard_codes:
 
         uncertainty.append(
             (
-                "현재 YOLO 탐지 결과에서 "
-                "SAFE-EYE 표준 위험코드로 "
-                "확정 가능한 객체가 없습니다."
+                "현재 YOLO 탐지 결과에서 SAFE-EYE의 "
+                "직접적인 위험 Evidence로 채택할 수 있는 "
+                "객체가 확인되지 않음."
             )
         )
 
-
-    # ----------------------------------------
-    # 4-6. 후속 권고
-    # ----------------------------------------
+    # --------------------------------------------------------
+    # 7-6. 후속 권고
+    # --------------------------------------------------------
 
     recommended_actions = []
 
@@ -365,30 +392,25 @@ def adapt_yolo_result(
 
         recommended_actions.append(
             (
-                "YOLO 탐지 결과를 참고하여 "
-                "현장에서 실제 보행 위험 여부를 "
-                "확인합니다."
+                "YOLO 탐지 결과는 현장점검 후보 Evidence로 사용하며, "
+                "실제 보행위험 여부는 현장 확인 및 다른 Evidence와 "
+                "함께 검토함."
             )
         )
 
-
-    # ----------------------------------------
-    # 4-7. raw Evidence 생성
-    # ----------------------------------------
+    # --------------------------------------------------------
+    # 7-7. raw Evidence
+    # --------------------------------------------------------
 
     raw_evidence = {
         "analysis_source": "YOLO",
 
-        "hazard_codes": (
-            hazard_codes
-        ),
+        "hazard_codes": hazard_codes,
 
-        "hazards": (
-            hazards
-        ),
+        "hazards": hazards,
 
-        # 현재 YOLO Adapter에서는
-        # 취약 이용자를 자동 추론하지 않습니다.
+        # YOLO 객체탐지만으로
+        # 취약사용자 여부를 자동 추론하지 않는다.
         "vulnerable_user_codes": [],
 
         "vulnerable_users": [],
@@ -409,6 +431,8 @@ def adapt_yolo_result(
             overall_confidence
         ),
 
+        # Risk에 반영되지 않은 객체도
+        # 원본 detection 목록에는 그대로 보존한다.
         "detections": (
             detections
         ),
@@ -417,9 +441,9 @@ def adapt_yolo_result(
     return raw_evidence
 
 
-# ============================================
-# 5. YOLO → 표준 Evidence 변환
-# ============================================
+# ============================================================
+# 8. YOLO -> SAFE-EYE Evidence
+# ============================================================
 
 def create_yolo_evidence(
     yolo_result,
@@ -431,7 +455,7 @@ def create_yolo_evidence(
     1. YOLO Adapter
     2. SAFE-EYE normalize_evidence()
 
-    를 순서대로 실행합니다.
+    순서로 실행한다.
     """
 
     raw_evidence = adapt_yolo_result(
@@ -447,21 +471,22 @@ def create_yolo_evidence(
     return evidence
 
 
-# ============================================
-# 6. 단독 실행 테스트
-# ============================================
+# ============================================================
+# 9. 단독 실행 테스트
+# ============================================================
 
 if __name__ == "__main__":
 
     print(
-        "=== YOLO Adapter 테스트 ==="
+        "=== SAFE-EYE YOLO Adapter v1.2 Test ==="
     )
 
+    # 실제 best.pt 클래스 기준 테스트
     sample_yolo_result = {
         "detections": [
             {
-                "class": "damaged_sidewalk",
-                "confidence": 0.87,
+                "class": "pothole",
+                "confidence": 0.91,
                 "bbox": [
                     120,
                     80,
@@ -470,7 +495,17 @@ if __name__ == "__main__":
                 ],
             },
             {
-                "class": "person",
+                "class": "open-manhole",
+                "confidence": 0.88,
+                "bbox": [
+                    300,
+                    150,
+                    450,
+                    330,
+                ],
+            },
+            {
+                "class": "humans",
                 "confidence": 0.93,
                 "bbox": [
                     500,
@@ -480,13 +515,33 @@ if __name__ == "__main__":
                 ],
             },
             {
-                "class": "sidewalk_obstacle",
-                "confidence": 0.72,
+                "class": "manhole",
+                "confidence": 0.96,
                 "bbox": [
-                    300,
                     200,
-                    470,
-                    390,
+                    200,
+                    320,
+                    320,
+                ],
+            },
+            {
+                "class": "object",
+                "confidence": 0.75,
+                "bbox": [
+                    700,
+                    100,
+                    820,
+                    350,
+                ],
+            },
+            {
+                "class": "alligator cracking",
+                "confidence": 0.84,
+                "bbox": [
+                    100,
+                    400,
+                    500,
+                    600,
                 ],
             },
         ]
@@ -520,23 +575,36 @@ if __name__ == "__main__":
 
     print()
     print(
-        "=== Adapter 요약 ==="
+        "=== Adapter Summary ==="
     )
+
     print(
         "Analysis Source:",
         evidence[
             "analysis_source"
         ],
     )
+
     print(
         "Hazard Codes:",
         evidence[
             "hazard_codes"
         ],
     )
+
     print(
         "Confidence:",
         evidence[
             "confidence"
         ],
+    )
+
+    print(
+        "Detections:",
+        len(
+            evidence.get(
+                "detections",
+                []
+            )
+        ),
     )

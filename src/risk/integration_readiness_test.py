@@ -245,7 +245,7 @@ def test_normal_yolo_public_data():
         "detections": [
             {
                 "class": (
-                    "damaged_sidewalk"
+                    "pothole"
                 ),
 
                 "confidence": 0.87,
@@ -260,7 +260,7 @@ def test_normal_yolo_public_data():
 
             {
                 "class": (
-                    "sidewalk_obstacle"
+                    "open-manhole"
                 ),
 
                 "confidence": 0.72,
@@ -397,7 +397,7 @@ def test_low_confidence_detection():
         "detections": [
             {
                 "class": (
-                    "damaged_sidewalk"
+                    "pothole"
                 ),
 
                 "confidence": 0.31,
@@ -549,7 +549,7 @@ def test_hazard_mismatch():
         "detections": [
             {
                 "class": (
-                    "sidewalk_obstacle"
+                    "open-manhole"
                 ),
 
                 "confidence": 0.88,
@@ -627,7 +627,7 @@ def test_environment_none():
         "detections": [
             {
                 "class": (
-                    "damaged_sidewalk"
+                    "pothole"
                 ),
 
                 "confidence": 0.87,
@@ -696,7 +696,7 @@ def test_demo_environment():
         "detections": [
             {
                 "class": (
-                    "damaged_sidewalk"
+                    "pothole"
                 ),
 
                 "confidence": 0.87,
@@ -768,7 +768,7 @@ def test_partial_public_data():
         "detections": [
             {
                 "class": (
-                    "damaged_sidewalk"
+                    "pothole"
                 ),
 
                 "confidence": 0.87,
