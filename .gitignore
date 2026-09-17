@@ -42,3 +42,5 @@ Thumbs.db
 
 # Personal backup files
 *백업*.txt
+# Local YOLO model weights
+/models/yolo/*.pt
