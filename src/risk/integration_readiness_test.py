@@ -283,7 +283,7 @@ def test_normal_yolo_public_data():
         yolo_result=yolo_result,
 
         selected_hazard_code=(
-            "DAMAGED_SIDEWALK"
+            "ROAD_SURFACE_DAMAGE"
         ),
 
         environment_evidence=environment,

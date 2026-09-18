@@ -31,6 +31,9 @@ def calculate_risk_score(evidence):
     if "DAMAGED_SIDEWALK" in hazard_codes:
         hazard_score += 15
 
+    if "ROAD_SURFACE_DAMAGE" in hazard_codes:
+        hazard_score += 15
+
     if "SIDEWALK_OBSTACLE" in hazard_codes:
         hazard_score += 10
 

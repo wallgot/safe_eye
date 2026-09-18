@@ -55,6 +55,9 @@ CROSSWALK_ADJACENT_VEHICLE
 DAMAGED_SIDEWALK
 - 보도블록, 보행로, 보도 포장이 파손된 상황
 
+ROAD_SURFACE_DAMAGE
+- 차도, 횡단보도 등 도로 노면에 포트홀, 균열, 침하, 패임 또는 변형이 관찰되는 상황
+
 SIDEWALK_OBSTACLE
 - 보도 위에 적치물이나 장애물이 있는 상황
 
@@ -161,10 +164,17 @@ def analyze_multimodal(
 9. 일반 보행자는 vulnerable_user로 분류하지 않는다.
 10. 반드시 허용된 표준 코드만 사용한다.
 
+위험코드 구분 규칙:
+- DAMAGED_SIDEWALK: 보도, 인도, 보행로 자체의 포장 파손
+- ROAD_SURFACE_DAMAGE: 차도, 횡단보도 등 도로 노면의 포트홀, 균열, 침하, 패임, 변형
+- SLIPPERY_SURFACE: 물, 얼음 등으로 미끄러운 상태 또는 미끄럼 가능성이 직접 관찰되는 경우
+- 동일 장면에서 서로 다른 위험요소가 직접 관찰되면 복수 코드를 사용할 수 있다.
+
 허용 hazard_codes:
 VISIBILITY_OBSTRUCTION
 CROSSWALK_ADJACENT_VEHICLE
 DAMAGED_SIDEWALK
+ROAD_SURFACE_DAMAGE
 SIDEWALK_OBSTACLE
 POOR_LIGHTING
 SLIPPERY_SURFACE

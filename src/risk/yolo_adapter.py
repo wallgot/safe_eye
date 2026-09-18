@@ -63,12 +63,12 @@ YOLO_MODEL_CLASSES = {
 YOLO_CLASS_MAP = {
     # 노면 파손 계열
     # 현재 SAFE-EYE Evidence Schema의 기존 표준코드에 보수적으로 매핑
-    "alligator cracking": "DAMAGED_SIDEWALK",
-    "edge cracking": "DAMAGED_SIDEWALK",
-    "longitudinal cracking": "DAMAGED_SIDEWALK",
-    "transverse cracking": "DAMAGED_SIDEWALK",
-    "pothole": "DAMAGED_SIDEWALK",
-    "rutting": "DAMAGED_SIDEWALK",
+   "alligator cracking": "ROAD_SURFACE_DAMAGE",
+"edge cracking": "ROAD_SURFACE_DAMAGE",
+"longitudinal cracking": "ROAD_SURFACE_DAMAGE",
+"transverse cracking": "ROAD_SURFACE_DAMAGE",
+"pothole": "ROAD_SURFACE_DAMAGE",
+"rutting": "ROAD_SURFACE_DAMAGE",
 
     # 개방 맨홀은 보행공간의 직접적인 장애/위험요소로 처리
     "open-manhole": "SIDEWALK_OBSTACLE",
@@ -79,7 +79,8 @@ YOLO_CLASS_MAP = {
 # ============================================================
 
 HAZARD_DESCRIPTIONS = {
-    "DAMAGED_SIDEWALK": "노면 균열·포트홀·변형 등 보행환경 손상 관찰",
+    "DAMAGED_SIDEWALK": "보도·인도·보행로의 포장 손상 관찰",
+    "ROAD_SURFACE_DAMAGE": "차도·횡단보도 등 도로 노면의 균열·포트홀·변형 관찰",
     "SIDEWALK_OBSTACLE": "개방 맨홀 등 보행공간 장애요소 관찰",
 }
 
